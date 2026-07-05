@@ -85,13 +85,12 @@ export default function BusinessesPage() {
         {/* Responsive table - horizontal scroll on small screens */}
         <div className="overflow-x-auto">
           <div className="min-w-[640px]">
-            <div className="grid grid-cols-[1.6fr_1fr_0.9fr_1fr_0.8fr] px-4 sm:px-5 py-3 border-b border-[var(--color-border)] bg-[var(--color-neutral-bg)] rounded-t-xl">
-              <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Business</span>
-              <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Status</span>
-              <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Branches</span>
-              <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Time left</span>
-              <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Joined</span>
-            </div>
+       <div className="grid grid-cols-[1.8fr_1fr_1fr_0.9fr] px-4 sm:px-5 py-3 border-b border-[var(--color-border)] bg-[var(--color-neutral-bg)] rounded-t-xl">
+  <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Business</span>
+  <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Status</span>
+  <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Branches</span>
+  <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Joined</span>
+</div>
 
             {isLoading ? (
               <div className="p-5"><Skeleton rows={6} /></div>
