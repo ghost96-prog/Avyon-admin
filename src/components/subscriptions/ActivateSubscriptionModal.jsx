@@ -35,14 +35,32 @@ const PAYMENT_METHODS = [
   { value: 'other', label: 'Other' },
 ];
 
-function toDateInputValue(timestamp) {
-  const d = timestamp ? new Date(timestamp) : new Date();
-  return d.toISOString().slice(0, 10);
+// ✅ Format date with time
+function formatDateTime(timestamp) {
+  const d = new Date(timestamp);
+  return d.toLocaleString(undefined, {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
-function endOfDay(dateString) {
-  const d = new Date(dateString);
-  d.setHours(23, 59, 59, 999);
+// ✅ Format for datetime-local input
+function toDateTimeInputValue(timestamp) {
+  const d = timestamp ? new Date(timestamp) : new Date();
+  // Adjust for timezone offset to get correct local time
+  const offset = d.getTimezoneOffset();
+  const localTime = new Date(d.getTime() - offset * 60000);
+  return localTime.toISOString().slice(0, 16);
+}
+
+// ✅ Parse datetime-local input value to timestamp
+function parseDateTimeInputValue(dateTimeString) {
+  if (!dateTimeString) return null;
+  const d = new Date(dateTimeString);
   return d.getTime();
 }
 
@@ -50,7 +68,7 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
   const toast = useToast();
   const [planId, setPlanId] = useState('monthly');
   const [extendFrom, setExtendFrom] = useState('now');
-  const [exactDate, setExactDate] = useState('');
+  const [exactDateTime, setExactDateTime] = useState('');
   const [useExactDate, setUseExactDate] = useState(false);
   const [amount, setAmount] = useState('10');
   const [paymentMethod, setPaymentMethod] = useState('ecocash');
@@ -64,14 +82,14 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
     : Date.now();
 
   const previewExpiresAt = useMemo(() => {
-    if (useExactDate && exactDate) {
-      return endOfDay(exactDate);
+    if (useExactDate && exactDateTime) {
+      return parseDateTimeInputValue(exactDateTime);
     }
     if (selectedPlan?.days) {
       return anchorTimestamp + selectedPlan.days * 24 * 60 * 60 * 1000;
     }
     return null;
-  }, [useExactDate, exactDate, selectedPlan, anchorTimestamp]);
+  }, [useExactDate, exactDateTime, selectedPlan, anchorTimestamp]);
 
   const handlePlanChange = (id) => {
     setPlanId(id);
@@ -81,7 +99,7 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
     }
     if (id === 'custom') {
       setUseExactDate(true);
-      if (!exactDate) setExactDate(toDateInputValue(anchorTimestamp));
+      if (!exactDateTime) setExactDateTime(toDateTimeInputValue(anchorTimestamp));
     } else {
       setUseExactDate(false);
     }
@@ -91,11 +109,22 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
     e.preventDefault();
     setSubmitting(true);
     try {
+      // ✅ If using exact date, pass the full timestamp including time
+      let explicitExpiresAt = null;
+      if (useExactDate && exactDateTime) {
+        explicitExpiresAt = parseDateTimeInputValue(exactDateTime);
+      }
+      
+      // If using a plan (not custom), ensure we're using end of day
+      if (selectedPlan?.days && !useExactDate) {
+        // Already using plan duration from anchorTimestamp
+      }
+
       await api.post(`/admin/subscriptions/${branch.businessId}/branches/${branch.branchId}/activate`, {
         ownerId: branch.ownerId,
         plan: planId,
         durationDays: selectedPlan?.days || null,
-        explicitExpiresAt: useExactDate && exactDate ? endOfDay(exactDate) : null,
+        explicitExpiresAt: explicitExpiresAt,
         extendFrom,
         amount: amount ? Number(amount) : null,
         paymentMethod,
@@ -174,18 +203,18 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
               checked={useExactDate}
               onChange={(e) => {
                 setUseExactDate(e.target.checked);
-                if (e.target.checked && !exactDate) setExactDate(toDateInputValue(anchorTimestamp));
+                if (e.target.checked && !exactDateTime) setExactDateTime(toDateTimeInputValue(anchorTimestamp));
               }}
               className="rounded"
             />
-            Set an exact expiry date instead
+            Set an exact expiry date & time instead
           </label>
           {useExactDate && (
             <Input
-              type="date"
-              value={exactDate}
-              onChange={(e) => setExactDate(e.target.value)}
-              min={toDateInputValue(Date.now())}
+              type="datetime-local"
+              value={exactDateTime}
+              onChange={(e) => setExactDateTime(e.target.value)}
+              min={toDateTimeInputValue(Date.now())}
             />
           )}
         </div>
@@ -193,8 +222,13 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
         {previewExpiresAt && (
           <div className="bg-[var(--color-success-bg)] rounded-lg px-3.5 py-2.5">
             <p className="text-xs text-[var(--color-success)]">
-              New access expiry: <span className="font-semibold">{new Date(previewExpiresAt).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              New access expiry: <span className="font-semibold">{formatDateTime(previewExpiresAt)}</span>
             </p>
+            {useExactDate && exactDateTime && (
+              <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
+                Exact date & time mode — the subscription will expire at this precise time
+              </p>
+            )}
           </div>
         )}
 

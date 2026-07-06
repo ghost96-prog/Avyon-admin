@@ -1,5 +1,5 @@
 // src/pages/AnalyticsPage.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import StatCard from '../components/ui/StatCard';
@@ -7,6 +7,7 @@ import RevenueChart from '../components/analytics/RevenueChart';
 import GrowthChart from '../components/analytics/GrowthChart';
 import StatusBreakdownChart from '../components/analytics/StatusBreakdownChart';
 import PaymentMethodChart from '../components/analytics/PaymentMethodChart';
+import PaymentsTable from '../components/analytics/PaymentsTable'; // Add this import
 import { ErrorState } from '../components/ui/States';
 
 const ICON_PROPS = { className: 'w-[18px] h-[18px] text-[var(--color-navy-900)]', fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor' };
@@ -15,6 +16,7 @@ export default function AnalyticsPage() {
   const revenue = useApi(() => api.get('/admin/analytics/revenue'), []);
   const growth = useApi(() => api.get('/admin/analytics/users/growth'), []);
   const branchesQuery = useApi(() => api.get('/admin/branches'), []);
+  const [showPayments, setShowPayments] = useState(false);
 
   if (revenue.error) {
     return <ErrorState message={revenue.error} onRetry={revenue.refetch} />;
@@ -50,6 +52,23 @@ export default function AnalyticsPage() {
       </div>
 
       <PaymentMethodChart data={revenue.data} isLoading={revenue.isLoading} />
+
+      {/* Payments Table Section - Lazy Loaded */}
+      <div className="mt-6">
+        <button
+          onClick={() => setShowPayments(!showPayments)}
+          className="flex items-center gap-2 text-sm font-medium text-[var(--color-navy-900)] hover:text-[var(--color-accent)] transition-colors"
+        >
+          <span>{showPayments ? '▼' : '▶'}</span>
+          {showPayments ? 'Hide Payment Details' : 'Show Payment Details'}
+        </button>
+        
+        {showPayments && (
+          <div className="mt-3">
+            <PaymentsTable />
+          </div>
+        )}
+      </div>
 
       <p className="text-xs text-[var(--color-text-muted)] text-center pt-2 px-2">
         Revenue figures reflect amounts you've manually recorded during subscription activation —
