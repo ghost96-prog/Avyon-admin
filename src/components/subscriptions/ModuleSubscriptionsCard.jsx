@@ -25,7 +25,7 @@ import ModuleSuspendModal from './ModuleSuspendModal';
 import ModuleResumeModal from './ModuleResumeModal';
 
 function ModuleBadge({ status }) {
-  const cfg = MODULE_STATUS_CONFIG[status] || MODULE_STATUS_CONFIG.cancelled;
+  const cfg = MODULE_STATUS_CONFIG[status] || MODULE_STATUS_CONFIG.inactive;
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${cfg.bg} ${cfg.text}`}>
       <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cfg.dot }} />
@@ -70,6 +70,9 @@ function ModuleTile({ branch, moduleId, moduleState, onRefetch }) {
     return 'Never activated';
   };
 
+  // Get the icon component from the catalog
+  const IconComponent = info?.icon;
+
   return (
     <div 
       className="relative bg-white dark:bg-[var(--color-surface)] rounded-xl p-4 flex flex-col gap-3 transition-all duration-200 hover:shadow-md border"
@@ -84,14 +87,14 @@ function ModuleTile({ branch, moduleId, moduleState, onRefetch }) {
         <div className="flex items-center gap-2.5 min-w-0">
           <div 
             className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 hover:scale-105"
-            style={{ backgroundColor: info.bg }}
+            style={{ backgroundColor: info?.bg || '#F1F5F9' }}
           >
-            <info.icon size={18} strokeWidth={1.75} color={info.color} />
+            {IconComponent && <IconComponent size={18} strokeWidth={1.75} color={info?.color || '#64748B'} />}
           </div>
           <div>
-            <p className="text-sm font-semibold text-[var(--color-text)] truncate">{info.label}</p>
+            <p className="text-sm font-semibold text-[var(--color-text)] truncate">{info?.label || moduleId}</p>
             <p className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wide">
-              {info.price}{info.period}
+              {info?.price}{info?.period || '/month'}
             </p>
           </div>
         </div>
