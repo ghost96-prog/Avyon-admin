@@ -6,7 +6,7 @@ import avyonLogo from '../../assets/avyonicon.png'; // Adjust path if needed
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: 'grid' },
   { to: '/businesses', label: 'Businesses', icon: 'building' },
-  { to: '/subscriptions', label: 'Subscriptions', icon: 'card' },
+  { to: '/subscriptions', label: 'POS Subscriptions', icon: 'card' },
     { to: '/modules', label: 'Advanced Subscriptions', icon: 'puzzle' }, // ✅ NEW
 
   { to: '/analytics', label: 'Analytics', icon: 'chart' },

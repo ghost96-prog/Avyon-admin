@@ -6,6 +6,16 @@
 // there; this is the module-level equivalent.
 
 import React, { useState } from 'react';
+import { 
+  Puzzle, 
+  RotateCcw, 
+  Plus, 
+  Play, 
+  Pause, 
+  AlertCircle,
+  Clock,
+  Circle,
+} from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import { useLiveCountdown } from '../../hooks/useLiveCountdown';
@@ -43,6 +53,23 @@ function ModuleTile({ branch, moduleId, moduleState, onRefetch }) {
     return '#94A3B8';
   };
 
+  // Status icon mapping
+  const getStatusIcon = () => {
+    if (isLive) return <Circle size={12} fill="#16A34A" color="#16A34A" />;
+    if (isSuspended) return <AlertCircle size={12} color="#D97706" />;
+    if (status === 'expired') return <AlertCircle size={12} color="#EF4444" />;
+    return <Circle size={12} color="#94A3B8" />;
+  };
+
+  const getStatusText = () => {
+    if (isLive && countdownText) {
+      return `${status === 'trial' ? 'Trial' : 'Active'} — ${countdownText} left`;
+    }
+    if (isSuspended) return 'Access blocked';
+    if (status === 'expired') return 'No active period';
+    return 'Never activated';
+  };
+
   return (
     <div 
       className="relative bg-white dark:bg-[var(--color-surface)] rounded-xl p-4 flex flex-col gap-3 transition-all duration-200 hover:shadow-md border"
@@ -59,9 +86,7 @@ function ModuleTile({ branch, moduleId, moduleState, onRefetch }) {
             className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-transform duration-200 hover:scale-105"
             style={{ backgroundColor: info.bg }}
           >
-            <svg className="w-4.5 h-4.5" fill="none" viewBox="0 0 24 24" stroke={info.color} strokeWidth={1.75}>
-              <path strokeLinecap="round" strokeLinejoin="round" d={info.iconPath} />
-            </svg>
+            <info.icon size={18} strokeWidth={1.75} color={info.color} />
           </div>
           <div>
             <p className="text-sm font-semibold text-[var(--color-text)] truncate">{info.label}</p>
@@ -75,17 +100,13 @@ function ModuleTile({ branch, moduleId, moduleState, onRefetch }) {
 
       {/* Status info */}
       <div className="flex items-center justify-between">
-        <p className="text-xs text-[var(--color-text-muted)]">
-          {isLive && countdownText
-            ? `${status === 'trial' ? 'Trial' : 'Active'} — ${countdownText} left`
-            : isSuspended
-              ? '⛔ Access blocked'
-              : status === 'expired'
-                ? '⏰ No active period'
-                : '⚪ Never activated'}
-        </p>
+        <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">
+          {getStatusIcon()}
+          <span>{getStatusText()}</span>
+        </div>
         {isLive && countdownText && (
-          <span className="text-[10px] font-medium text-[var(--color-text-muted)] bg-[var(--color-bg)] px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-medium text-[var(--color-text-muted)] bg-[var(--color-bg)] px-2 py-0.5 rounded-full flex items-center gap-1">
+            <Clock size={10} />
             {countdownText}
           </span>
         )}
@@ -97,30 +118,38 @@ function ModuleTile({ branch, moduleId, moduleState, onRefetch }) {
           variant={isLive ? "secondary" : "primary"}
           size="xs" 
           onClick={() => setActivateOpen(true)} 
-          className="flex-1 font-medium"
+          className="flex-1 font-medium flex items-center justify-center gap-1.5"
           style={{ cursor: 'pointer' }}
         >
-          {isLive ? '🔄 Extend' : '➕ Activate'}
+          {isLive ? (
+            <>
+              <RotateCcw size={12} /> Extend
+            </>
+          ) : (
+            <>
+              <Plus size={12} /> Activate
+            </>
+          )}
         </Button>
         {isSuspended ? (
           <Button 
             variant="success" 
             size="xs" 
             onClick={() => setResumeOpen(true)} 
-            className="flex-1 font-medium"
+            className="flex-1 font-medium flex items-center justify-center gap-1.5"
             style={{ cursor: 'pointer' }}
           >
-            ▶ Resume
+            <Play size={12} /> Resume
           </Button>
         ) : isLive ? (
           <Button 
             variant="danger" 
             size="xs" 
             onClick={() => setSuspendOpen(true)} 
-            className="flex-1 font-medium"
+            className="flex-1 font-medium flex items-center justify-center gap-1.5"
             style={{ cursor: 'pointer' }}
           >
-            ⏸ Suspend
+            <Pause size={12} /> Suspend
           </Button>
         ) : null}
       </div>
@@ -154,7 +183,7 @@ export default function ModuleSubscriptionsCard({ business, branches, onRefetch 
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-[var(--color-text)] flex items-center gap-2">
-              <span className="text-lg">🧩</span>
+              <Puzzle size={18} strokeWidth={2} className="text-[var(--color-primary)]" />
               Add-on Modules
             </h3>
             <p className="text-xs text-[var(--color-text-muted)] mt-1">
