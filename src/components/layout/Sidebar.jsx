@@ -7,6 +7,8 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: 'grid' },
   { to: '/businesses', label: 'Businesses', icon: 'building' },
   { to: '/subscriptions', label: 'Subscriptions', icon: 'card' },
+    { to: '/modules', label: 'Advanced Subscriptions', icon: 'puzzle' }, // ✅ NEW
+
   { to: '/analytics', label: 'Analytics', icon: 'chart' },
 ];
 
@@ -22,6 +24,10 @@ const ICONS = {
   card: (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
       d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7zM3 10h18" />
+  ),
+   puzzle: (
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+      d="M11 4a2 2 0 114 0v1h2a2 2 0 012 2v2h1a2 2 0 010 4h-1v2a2 2 0 01-2 2h-2v1a2 2 0 11-4 0v-1H9a2 2 0 01-2-2v-2H6a2 2 0 010-4h1V7a2 2 0 012-2h2V4z" />
   ),
   chart: (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}

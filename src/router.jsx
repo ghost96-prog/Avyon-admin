@@ -9,6 +9,7 @@ import BusinessesPage from './pages/BusinessesPage';
 import BusinessDetailPage from './pages/BusinessDetailPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import AnalyticsFallback from './components/analytics/AnalyticsFallback';
+import ModulesPage from './pages/ModulesPage';
 
 // ✅ Lazy-loaded: AnalyticsPage is the only page that imports recharts,
 // which alone pulls in 500+ modules. Code-splitting it means everyone
@@ -33,6 +34,8 @@ export const router = createBrowserRouter([
       { path: 'businesses', element: <BusinessesPage />, handle: { title: 'Businesses' } },
       { path: 'businesses/:businessId', element: <BusinessDetailPage />, handle: { title: 'Business Detail' } },
       { path: 'subscriptions', element: <SubscriptionsPage />, handle: { title: 'Subscriptions' } },
+      { path: 'modules', element: <ModulesPage />, handle: { title: 'Advanced Subscriptions' } },
+
       {
         path: 'analytics',
         element: (

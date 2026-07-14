@@ -7,6 +7,7 @@ import { ErrorState, Skeleton } from '../components/ui/States';
 import BranchesSection from '../components/businesses/BranchesSection';
 import AccountStatusCard from '../components/businesses/AccountStatusCard';
 import StaffSection from '../components/staff/StaffSection';
+import ModuleSubscriptionsCard from '../components/subscriptions/ModuleSubscriptionsCard';
 
 export default function BusinessDetailPage() {
   const { businessId } = useParams();
@@ -42,7 +43,11 @@ export default function BusinessDetailPage() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <Link to="/businesses" className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors">
+      <Link 
+        to="/businesses" 
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+        style={{ cursor: 'pointer' }}
+      >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
@@ -59,6 +64,8 @@ export default function BusinessDetailPage() {
       <AccountStatusCard business={businessWithIds} onRefetch={refetch} />
 
       <BranchesSection business={businessWithIds} branches={branches} onRefetch={refetch} />
+
+      <ModuleSubscriptionsCard business={businessWithIds} branches={branches} onRefetch={refetch} />
 
       <StaffSection business={businessWithIds} staff={staff} onRefetch={refetch} />
     </div>
