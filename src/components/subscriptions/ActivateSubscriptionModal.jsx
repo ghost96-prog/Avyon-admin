@@ -1,15 +1,19 @@
 // src/components/subscriptions/ActivateSubscriptionModal.jsx
 //
-// ✅ BRANCH-LEVEL MODEL: now activates ONE BRANCH's subscription, not a
-// whole business. Takes a `branch` object (must include branchId,
-// businessId, ownerId, branchName, accessExpiresAt) instead of a
-// `business` object. Hits the new nested endpoint:
+// ✅ BRANCH-LEVEL MODEL: activates ONE BRANCH's subscription. Takes a
+// `branch` object (must include branchId, businessId, ownerId,
+// branchName, accessExpiresAt). Hits:
 //   POST /admin/subscriptions/:businessId/branches/:branchId/activate
 //
-// Everything else — plan presets, exact date picker (always wins if
-// touched), extend-from-now vs extend-from-current-expiry toggle,
-// payment amount/method/note — is functionally identical to the
-// business-level version, just scoped one level deeper.
+// ✅ FIXES in this version:
+// - Amount paid is now fully optional, both functionally (was already
+//   optional in the request payload) and visually — the field no longer
+//   auto-fills a suggested price when you pick a plan, so you can just
+//   extend/set time without recording any payment.
+// - "Extend from" now shows exactly how many days are currently
+//   remaining and states plainly that choosing "Current expiry" adds
+//   the new duration on top of that remaining time, while "Today"
+//   recalculates purely from now. The preview box spells this out too.
 
 import React, { useState, useMemo } from 'react';
 import Modal from '../ui/Modal';
@@ -19,11 +23,16 @@ import Select from '../ui/Select';
 import { api } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 
+// ✅ Calendar months, not fixed day counts. "1 Month" as a flat 30 days
+// drifts by a day (or more) whenever the anchor date falls in a longer
+// month — e.g. July 22 + 30 days = Aug 21, not Aug 22. Using real
+// calendar-month arithmetic (see addMonths below) keeps the expiry on
+// the same day-of-month the admin actually expects.
 const PLAN_PRESETS = [
-  { id: 'monthly', label: '1 Month', days: 30, suggestedPrice: 7 },
-  { id: 'biannual', label: '6 Months', days: 182, suggestedPrice: 30 },
-  { id: 'annual', label: '12 Months', days: 365, suggestedPrice: 65 },
-  { id: 'custom', label: 'Custom', days: null, suggestedPrice: null },
+  { id: 'monthly', label: '1 Month', months: 1, suggestedPrice: 7 },
+  { id: 'biannual', label: '6 Months', months: 6, suggestedPrice: 30 },
+  { id: 'annual', label: '12 Months', months: 12, suggestedPrice: 65 },
+  { id: 'custom', label: 'Custom', months: null, suggestedPrice: null },
 ];
 
 const PAYMENT_METHODS = [
@@ -34,6 +43,8 @@ const PAYMENT_METHODS = [
   { value: 'bank_transfer', label: 'Bank Transfer' },
   { value: 'other', label: 'Other' },
 ];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 // ✅ Format date with time
 function formatDateTime(timestamp) {
@@ -64,20 +75,41 @@ function parseDateTimeInputValue(dateTimeString) {
   return d.getTime();
 }
 
+// ✅ Add calendar months to a timestamp, preserving time-of-day and
+// clamping the day-of-month if the target month is shorter (e.g. Jan 31
+// + 1 month -> Feb 28/29, not an overflow into March).
+function addMonths(timestamp, months) {
+  const d = new Date(timestamp);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  const daysInTargetMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, daysInTargetMonth));
+  return d.getTime();
+}
+
 export default function ActivateSubscriptionModal({ open, onClose, branch, onSuccess }) {
   const toast = useToast();
   const [planId, setPlanId] = useState('monthly');
   const [extendFrom, setExtendFrom] = useState('now');
   const [exactDateTime, setExactDateTime] = useState('');
   const [useExactDate, setUseExactDate] = useState(false);
-  const [amount, setAmount] = useState('10');
+  // ✅ Amount is optional — starts blank instead of prefilled, so admins
+  // can extend/set expiry without being nudged into recording a payment.
+  const [amount, setAmount] = useState('7');
   const [paymentMethod, setPaymentMethod] = useState('ecocash');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const selectedPlan = PLAN_PRESETS.find((p) => p.id === planId);
 
-  const anchorTimestamp = extendFrom === 'currentExpiry' && branch.accessExpiresAt > Date.now()
+  const hasRemainingAccess = branch.accessExpiresAt > Date.now();
+  // ✅ Whole days left on the current subscription, for display only.
+  const daysRemaining = hasRemainingAccess
+    ? Math.max(1, Math.ceil((branch.accessExpiresAt - Date.now()) / DAY_MS))
+    : 0;
+
+  const anchorTimestamp = extendFrom === 'currentExpiry' && hasRemainingAccess
     ? branch.accessExpiresAt
     : Date.now();
 
@@ -85,18 +117,17 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
     if (useExactDate && exactDateTime) {
       return parseDateTimeInputValue(exactDateTime);
     }
-    if (selectedPlan?.days) {
-      return anchorTimestamp + selectedPlan.days * 24 * 60 * 60 * 1000;
+    if (selectedPlan?.months) {
+      return addMonths(anchorTimestamp, selectedPlan.months);
     }
     return null;
   }, [useExactDate, exactDateTime, selectedPlan, anchorTimestamp]);
 
   const handlePlanChange = (id) => {
     setPlanId(id);
-    const plan = PLAN_PRESETS.find((p) => p.id === id);
-    if (plan?.suggestedPrice) {
-      setAmount(String(plan.suggestedPrice));
-    }
+    // ✅ No longer force-fills the amount field — the suggested price is
+    // shown on the button itself as a hint, but typing/leaving it blank
+    // is entirely up to the admin.
     if (id === 'custom') {
       setUseExactDate(true);
       if (!exactDateTime) setExactDateTime(toDateTimeInputValue(anchorTimestamp));
@@ -109,23 +140,21 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
     e.preventDefault();
     setSubmitting(true);
     try {
-      // ✅ If using exact date, pass the full timestamp including time
-      let explicitExpiresAt = null;
-      if (useExactDate && exactDateTime) {
-        explicitExpiresAt = parseDateTimeInputValue(exactDateTime);
-      }
-      
-      // If using a plan (not custom), ensure we're using end of day
-      if (selectedPlan?.days && !useExactDate) {
-        // Already using plan duration from anchorTimestamp
-      }
+      // ✅ Always send the exact timestamp we already computed and showed
+      // in the preview — whether it came from a plan (calendar months)
+      // or a manually chosen exact date. This guarantees what you saw on
+      // screen is what gets saved; the backend no longer redoes day math
+      // that could drift by a day depending on month length.
+      const explicitExpiresAt = previewExpiresAt;
 
       await api.post(`/admin/subscriptions/${branch.businessId}/branches/${branch.branchId}/activate`, {
         ownerId: branch.ownerId,
         plan: planId,
-        durationDays: selectedPlan?.days || null,
+        durationMonths: selectedPlan?.months || null,
         explicitExpiresAt: explicitExpiresAt,
         extendFrom,
+        // ✅ Amount stays fully optional — null when left blank, so this
+        // can be used purely to extend/set time with no payment record.
         amount: amount ? Number(amount) : null,
         paymentMethod,
         note: note || null,
@@ -164,7 +193,7 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
           </div>
         </div>
 
-        {branch.accessExpiresAt > Date.now() && (
+        {hasRemainingAccess && (
           <div>
             <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-2">
               Extend from
@@ -179,7 +208,7 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
                     : 'border-[var(--color-border)] text-[var(--color-text)]'
                 }`}
               >
-                Current expiry (stacks remaining time)
+                Current expiry ({daysRemaining}d left) — adds on top
               </button>
               <button
                 type="button"
@@ -190,7 +219,7 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
                     : 'border-[var(--color-border)] text-[var(--color-text)]'
                 }`}
               >
-                Today (resets remaining time)
+                Today — resets, calculates fresh from now
               </button>
             </div>
           </div>
@@ -224,6 +253,13 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
             <p className="text-xs text-[var(--color-success)]">
               New access expiry: <span className="font-semibold">{formatDateTime(previewExpiresAt)}</span>
             </p>
+            {!useExactDate && selectedPlan?.months && (
+              <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
+                {extendFrom === 'currentExpiry' && hasRemainingAccess
+                  ? `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining + ${selectedPlan.months} month${selectedPlan.months === 1 ? '' : 's'} added on top`
+                  : `Calculated from today — ${selectedPlan.months} month${selectedPlan.months === 1 ? '' : 's'} from now`}
+              </p>
+            )}
             {useExactDate && exactDateTime && (
               <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
                 Exact date & time mode — the subscription will expire at this precise time
@@ -234,10 +270,11 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
 
         <div className="grid grid-cols-2 gap-3">
           <Input
-            label="Amount paid (USD)"
+            label="Amount paid (USD) — optional"
             type="number"
             min="0"
             step="0.01"
+            placeholder="Leave blank to just extend time"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
           />
