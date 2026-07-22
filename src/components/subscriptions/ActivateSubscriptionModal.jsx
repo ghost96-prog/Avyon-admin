@@ -21,8 +21,8 @@ import { useToast } from '../../context/ToastContext';
 
 const PLAN_PRESETS = [
   { id: 'monthly', label: '1 Month', days: 30, suggestedPrice: 7 },
-  { id: 'biannual', label: '6 Months', days: 182, suggestedPrice: 50 },
-  { id: 'annual', label: '12 Months', days: 365, suggestedPrice: 100 },
+  { id: 'biannual', label: '6 Months', days: 182, suggestedPrice: 30 },
+  { id: 'annual', label: '12 Months', days: 365, suggestedPrice: 65 },
   { id: 'custom', label: 'Custom', days: null, suggestedPrice: null },
 ];
 
