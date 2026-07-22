@@ -20,7 +20,7 @@ import { api } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 
 const PLAN_PRESETS = [
-  { id: 'monthly', label: '1 Month', days: 30, suggestedPrice: 10 },
+  { id: 'monthly', label: '1 Month', days: 30, suggestedPrice: 7 },
   { id: 'biannual', label: '6 Months', days: 182, suggestedPrice: 50 },
   { id: 'annual', label: '12 Months', days: 365, suggestedPrice: 100 },
   { id: 'custom', label: 'Custom', days: null, suggestedPrice: null },
@@ -70,7 +70,7 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
   const [extendFrom, setExtendFrom] = useState('now');
   const [exactDateTime, setExactDateTime] = useState('');
   const [useExactDate, setUseExactDate] = useState(false);
-  const [amount, setAmount] = useState('10');
+  const [amount, setAmount] = useState('7');
   const [paymentMethod, setPaymentMethod] = useState('ecocash');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
