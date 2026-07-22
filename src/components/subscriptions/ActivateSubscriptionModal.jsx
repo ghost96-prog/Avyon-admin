@@ -70,7 +70,7 @@ export default function ActivateSubscriptionModal({ open, onClose, branch, onSuc
   const [extendFrom, setExtendFrom] = useState('now');
   const [exactDateTime, setExactDateTime] = useState('');
   const [useExactDate, setUseExactDate] = useState(false);
-  const [amount, setAmount] = useState('7');
+  const [amount, setAmount] = useState('10');
   const [paymentMethod, setPaymentMethod] = useState('ecocash');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
