@@ -1,11 +1,16 @@
 // src/components/analytics/PaymentsTable.jsx
+//
+// ✅ NEW — accepts optional startDate/endDate props (YYYY-MM-DD) from
+// AnalyticsPage's date range control. When either changes, resets to page
+// 1 and refetches with the new range. No props = unfiltered (unchanged
+// behavior for any other caller).
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../services/api';
 
 const PAYMENTS_PER_PAGE = 20;
 
-export default function PaymentsTable() {
+export default function PaymentsTable({ startDate, endDate }) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -19,47 +24,49 @@ export default function PaymentsTable() {
     setLoading(true);
     setError(null);
     try {
-      console.log('🔍 Fetching payments for page:', pageNum);
-      
+      console.log('🔍 Fetching payments for page:', pageNum, { startDate, endDate });
+
+      const params = new URLSearchParams({ page: pageNum, limit: PAYMENTS_PER_PAGE });
+      if (startDate) params.set('startDate', startDate);
+      if (endDate) params.set('endDate', endDate);
+
       // ✅ Your api.get returns the parsed data directly, not the response object
-      const data = await api.get(`/admin/analytics/payments?page=${pageNum}&limit=${PAYMENTS_PER_PAGE}`);
-      
+      const data = await api.get(`/admin/analytics/payments?${params.toString()}`);
+
       console.log('📦 Response data:', data);
-      
-      // ✅ Check if data has the expected structure
+
       if (!data) {
         console.error('❌ No data received');
         throw new Error('No data received from server');
       }
-      
+
       if (!data.payments) {
         console.error('❌ No payments array in response:', data);
         throw new Error('Invalid response format: missing payments array');
       }
-      
+
       if (!data.pagination) {
         console.error('❌ No pagination object in response:', data);
         throw new Error('Invalid response format: missing pagination');
       }
-      
+
       console.log('✅ Setting payments:', data.payments.length, 'items');
       console.log('✅ Pagination:', data.pagination);
-      
+
       setPayments(data.payments);
       setTotalPages(data.pagination.totalPages);
       setTotalPayments(data.pagination.total);
       setHasNext(data.pagination.hasNext);
       setHasPrev(data.pagination.hasPrev);
       setPage(pageNum);
-      
+
     } catch (err) {
       console.error('❌ Fetch payments error:', err);
       console.error('❌ Error details:', {
         message: err.message,
         stack: err.stack
       });
-      
-      // ✅ Better error messages based on error type
+
       if (err.message.includes('404')) {
         setError('Payments endpoint not found (404). Please ensure the backend is updated and deployed.');
       } else if (err.message.includes('401')) {
@@ -72,8 +79,9 @@ export default function PaymentsTable() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [startDate, endDate]);
 
+  // ✅ Refetch from page 1 whenever the date range changes (not just on mount)
   useEffect(() => {
     fetchPayments(1);
   }, [fetchPayments]);
@@ -196,7 +204,7 @@ export default function PaymentsTable() {
             ) : payments.length === 0 ? (
               <tr>
                 <td colSpan="6" className="px-4 sm:px-6 py-8 text-center text-[var(--color-text-muted)]">
-                  No payment records found. Revenue data will appear here as subscriptions are activated.
+                  No payment records found for this period.
                 </td>
               </tr>
             ) : (

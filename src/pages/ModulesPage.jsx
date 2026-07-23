@@ -1,12 +1,6 @@
 // src/pages/ModulesPage.jsx
-//
-// Flat, filterable list of every module × branch combination across the
-// whole platform — the module-level equivalent of SubscriptionsPage.
-// Built from the same GET /admin/branches response (now carrying a
-// `modules` field per branch, see adminBusinessControllers.js), flattened
-// client-side into one row per (branch, moduleId) pair.
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/ui/Card';
@@ -23,13 +17,96 @@ const MODULE_OPTIONS = [
 ];
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'All statuses' },
   { value: 'trial', label: 'Trial' },
   { value: 'active', label: 'Active' },
   { value: 'expired', label: 'Expired' },
   { value: 'suspended', label: 'Suspended' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
+
+// Multi-select dropdown
+const MultiSelectStatus = ({ options, selected, onChange, placeholder }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const toggle = (value) => {
+    const newSelected = selected.includes(value)
+      ? selected.filter(s => s !== value)
+      : [...selected, value];
+    onChange(newSelected);
+  };
+
+  const getLabel = () => {
+    if (selected.length === 0) return placeholder;
+    if (selected.length === options.length) return 'All statuses';
+    if (selected.length === 1) {
+      return options.find(o => o.value === selected[0])?.label || selected[0];
+    }
+    return `${selected.length} selected`;
+  };
+
+  return (
+    <div className="relative w-40" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-4 py-2 text-left bg-white border border-[var(--color-border)] rounded-lg hover:border-[var(--color-primary)] transition-colors flex items-center justify-between"
+      >
+        <span className={`text-sm ${selected.length === 0 ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-text)]'}`}>
+          {getLabel()}
+        </span>
+        <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-[var(--color-border)] rounded-lg shadow-lg max-h-72 overflow-y-auto">
+          <div className="p-3">
+            <div className="flex justify-between items-center px-2 py-1.5 mb-2 border-b border-[var(--color-border)]">
+              <button 
+                onClick={() => onChange(options.map(o => o.value))}
+                className="text-xs font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]"
+              >
+                Select All
+              </button>
+              <button 
+                onClick={() => onChange([])}
+                className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"
+              >
+                Clear
+              </button>
+            </div>
+            <div className="space-y-0.5">
+              {options.map(opt => (
+                <label 
+                  key={opt.value} 
+                  className="flex items-center gap-2.5 px-2 py-2 hover:bg-[var(--color-neutral-bg)] cursor-pointer rounded-md transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(opt.value)}
+                    onChange={() => toggle(opt.value)}
+                    className="w-4 h-4 text-[var(--color-primary)] border-[var(--color-border)] rounded focus:ring-[var(--color-primary)]"
+                  />
+                  <span className="text-sm text-[var(--color-text)]">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 function ModuleRow({ row }) {
   const { countdownText } = useLiveCountdown(row.accessExpiresAt);
@@ -71,12 +148,26 @@ function ModuleRow({ row }) {
 }
 
 export default function ModulesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialStatus = searchParams.getAll('status') || [];
+  
   const [search, setSearch] = useState('');
   const [moduleFilter, setModuleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
 
   const { data, error, isLoading, refetch } = useApi(() => api.get('/admin/branches'), []);
   const branches = useMemo(() => data?.branches || [], [data]);
+
+  const updateURL = (values) => {
+    searchParams.delete('status');
+    values.forEach(v => searchParams.append('status', v));
+    setSearchParams(searchParams, { replace: true });
+  };
+
+  const handleStatusChange = (values) => {
+    setStatusFilter(values);
+    updateURL(values);
+  };
 
   const rows = useMemo(() => {
     const out = [];
@@ -105,7 +196,7 @@ export default function ModulesPage() {
   const filtered = useMemo(() => {
     let list = rows;
     if (moduleFilter !== 'all') list = list.filter((r) => r.moduleId === moduleFilter);
-    if (statusFilter !== 'all') list = list.filter((r) => r.status === statusFilter);
+    if (statusFilter.length > 0) list = list.filter((r) => statusFilter.includes(r.status));
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(
@@ -129,9 +220,44 @@ export default function ModulesPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1"
         />
-        <Select options={MODULE_OPTIONS} value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} className="sm:w-52" />
-        <Select options={STATUS_OPTIONS} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="sm:w-40" />
+        <Select 
+          options={MODULE_OPTIONS} 
+          value={moduleFilter} 
+          onChange={(e) => setModuleFilter(e.target.value)} 
+          className="sm:w-52" 
+        />
+        <MultiSelectStatus
+          options={STATUS_OPTIONS}
+          selected={statusFilter}
+          onChange={handleStatusChange}
+          placeholder="All statuses"
+        />
       </div>
+
+      {/* Status filter tags */}
+      {statusFilter.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {statusFilter.map(s => {
+            const opt = STATUS_OPTIONS.find(o => o.value === s);
+            return (
+              <span key={s} className="inline-flex items-center gap-1 px-3 py-1 text-xs bg-blue-50 text-blue-700 rounded-full">
+                {opt?.label}
+                <button onClick={() => handleStatusChange(statusFilter.filter(v => v !== s))}>×</button>
+              </span>
+            );
+          })}
+          <button 
+            onClick={() => {
+              setStatusFilter([]);
+              searchParams.delete('status');
+              setSearchParams(searchParams, { replace: true });
+            }}
+            className="text-xs text-gray-500 hover:text-red-600"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
 
       <Card padded={false}>
         <div className="overflow-x-auto">
@@ -154,7 +280,9 @@ export default function ModulesPage() {
         </div>
       </Card>
 
-      <p className="text-xs text-[var(--color-text-muted)] px-1">Showing {filtered.length} of {rows.length} module subscriptions</p>
+      <p className="text-xs text-[var(--color-text-muted)] px-1">
+        Showing {filtered.length} of {rows.length} module subscriptions
+      </p>
     </div>
   );
 }
