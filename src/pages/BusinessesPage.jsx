@@ -5,6 +5,7 @@ import { api } from '../services/api';
 import { useApi } from '../hooks/useApi';
 import Card from '../components/ui/Card';
 import Input from '../components/ui/Input';
+import ConfirmModal from '../components/businesses/ConfirmModal';
 import BusinessRow from '../components/businesses/BusinessRow';
 import { Skeleton, ErrorState, EmptyState } from '../components/ui/States';
 
@@ -32,6 +33,44 @@ export default function BusinessesPage() {
 
   const { data, error, isLoading, refetch } = useApi(() => api.get('/admin/businesses'), []);
   const businesses = useMemo(() => data?.businesses || [], [data]);
+
+  // ── Delete business flow ─────────────────────────────────────────────────
+  // Permanent, cascading delete (business + all branches + everything
+  // nested beneath them). deleteTarget holds the business currently
+  // staged for deletion so the modal knows what it's confirming.
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  const handleDeleteClick = (business) => {
+    setDeleteError(null);
+    setDeleteTarget(business);
+  };
+
+  const handleCancelDelete = () => {
+    if (isDeleting) return;
+    setDeleteTarget(null);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.delete(
+        `/admin/businesses/${deleteTarget.businessId}?ownerId=${deleteTarget.ownerId}`
+      );
+      setDeleteTarget(null);
+      refetch();
+    } catch (err) {
+      setDeleteError(
+        err?.response?.data?.error || err?.message || 'Failed to delete business. Please try again.'
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -241,11 +280,12 @@ export default function BusinessesPage() {
         {/* Responsive table - horizontal scroll on small screens */}
         <div className="overflow-x-auto">
           <div className="min-w-[640px]">
-            <div className="grid grid-cols-[1.8fr_1fr_1fr_0.9fr] px-4 sm:px-5 py-3 border-b border-[var(--color-border)] bg-[var(--color-neutral-bg)] rounded-t-xl">
+            <div className="grid grid-cols-[1.8fr_1fr_1fr_0.9fr_auto] px-4 sm:px-5 py-3 border-b border-[var(--color-border)] bg-[var(--color-neutral-bg)] rounded-t-xl">
               <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Business</span>
               <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Status</span>
               <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Branches</span>
               <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">Joined</span>
+              <span className="text-[11px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wide text-right">Actions</span>
             </div>
 
             {isLoading ? (
@@ -256,7 +296,9 @@ export default function BusinessesPage() {
                 message={search || selectedStatuses.length > 0 ? 'Try adjusting your search or filters.' : 'No businesses have registered yet.'}
               />
             ) : (
-              filtered.map((b) => <BusinessRow key={b.businessId} business={b} />)
+              filtered.map((b) => (
+                <BusinessRow key={b.businessId} business={b} onDeleteClick={handleDeleteClick} />
+              ))
             )}
           </div>
         </div>
@@ -275,6 +317,21 @@ export default function BusinessesPage() {
           </p>
         )}
       </div>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Delete this business permanently?"
+        message={
+          deleteTarget
+            ? `You're about to permanently delete "${deleteTarget.businessName}" and everything under it — all ${deleteTarget.branchCount ?? 0} branch(es), their POS terminals, staff, subscription history, and settings. This action cannot be reversed.`
+            : ''
+        }
+        confirmLabel="Delete business"
+        isLoading={isDeleting}
+        error={deleteError}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   );
 }
