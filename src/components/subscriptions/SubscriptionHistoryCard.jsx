@@ -1,7 +1,13 @@
 // src/components/subscriptions/SubscriptionHistoryCard.jsx
 //
-// ✅ BRANCH-LEVEL: reads ONE branch's subscriptionHistory subcollection
-// via the new nested endpoint.
+// ✅ BRANCH-LEVEL: reads ONE branch's combined history — the backend now
+// merges the base `subscriptionHistory` subcollection with every
+// module's `moduleSubscriptionHistory` subcollection (Inventory
+// Management / Advanced Inventory Management / Analytics add-ons) into a
+// single createdAt-sorted timeline (see getSubscriptionHistory). Entries
+// that came from a module carry a `moduleId` + `moduleLabel` so they can
+// be labeled distinctly from base-subscription events instead of just
+// showing "Activated" with no indication of which plan it was.
 
 import React from 'react';
 import Card from '../ui/Card';
@@ -15,17 +21,22 @@ const EVENT_CONFIG = {
   suspended: { label: 'Suspended', color: 'var(--color-danger)' },
   resumed: { label: 'Resumed', color: 'var(--color-success)' },
   auto_expired: { label: 'Auto-expired', color: 'var(--color-warning)' },
+  trial_started: { label: 'Trial started', color: 'var(--color-success)' },
 };
 
 function HistoryRow({ entry }) {
   const config = EVENT_CONFIG[entry.type] || { label: entry.type, color: 'var(--color-neutral)' };
+  // ✅ Module-sourced entries (moduleId present) get their plan name
+  // prefixed onto the label so "Activated" doesn't read as ambiguous
+  // between the base subscription and an add-on module.
+  const label = entry.moduleId ? `${entry.moduleLabel || entry.moduleId} — ${config.label}` : config.label;
 
   return (
     <div className="flex items-start gap-3 px-5 py-3">
       <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: config.color }} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-medium text-[var(--color-text)]">{config.label}</p>
+          <p className="text-sm font-medium text-[var(--color-text)]">{label}</p>
           <span className="text-xs text-[var(--color-text-muted)] shrink-0">{formatDateTime(entry.createdAt)}</span>
         </div>
         <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
@@ -38,6 +49,7 @@ function HistoryRow({ entry }) {
           {entry.type === 'suspended' && entry.reason}
           {entry.type === 'resumed' && `Restored to ${entry.restoredStatus}`}
           {entry.type === 'auto_expired' && `${entry.previousStatus} → ${entry.newStatus}`}
+          {entry.type === 'trial_started' && 'Free trial started'}
         </p>
       </div>
     </div>
