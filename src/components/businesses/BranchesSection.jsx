@@ -15,15 +15,34 @@ import ActivateSubscriptionModal from '../subscriptions/ActivateSubscriptionModa
 import SuspendModal from '../subscriptions/SuspendModal';
 import ResumeModal from '../subscriptions/ResumeModal';
 import EditFieldModal from './EditFieldModal';
+import DeactivatePosModal from './DeactivatePosModal';
 import { api } from '../../services/api';
 import { EmptyState } from '../ui/States';
 
 const POS_STATUS_OPTIONS = [
-  { value: 'active', label: 'Active (claimed)' },
-  { value: 'inactive', label: 'Inactive (free)' },
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
 ];
 
-function PosTerminalRow({ pos, onEdit }) {
+// Shows the terminal's real stored status. Only 'active' and 'inactive'
+// get friendly labels; any other value is shown exactly as stored instead
+// of being silently treated as inactive.
+const getPosStatusLabel = (status) => {
+  if (status === 'active') return 'Active';
+  if (status === 'inactive') return 'Inactive';
+  return status ? String(status) : 'No status';
+};
+
+// The edit dropdown must be able to display the terminal's real status.
+// If it isn't one of the two standard options, add it so the select
+// doesn't fall back to showing "Active".
+const getPosStatusOptions = (status) => {
+  const current = status ?? '';
+  if (POS_STATUS_OPTIONS.some((o) => o.value === current)) return POS_STATUS_OPTIONS;
+  return [{ value: current, label: getPosStatusLabel(status) }, ...POS_STATUS_OPTIONS];
+};
+
+function PosTerminalRow({ pos, onEdit, onDeactivate }) {
   const isActive = pos.status === 'active';
   return (
     <div className="flex items-center justify-between py-2 pl-4 border-l-2 border-[var(--color-border)]">
@@ -31,16 +50,23 @@ function PosTerminalRow({ pos, onEdit }) {
         <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-[var(--color-success)]' : 'bg-[var(--color-neutral)]'}`} />
         <div>
           <p className="text-sm text-[var(--color-text)]">{pos.name}{pos.isMain && <span className="text-[10px] text-[var(--color-text-muted)] ml-1.5">MAIN</span>}</p>
-          <p className="text-xs text-[var(--color-text-muted)]">{isActive ? 'Claimed / in use' : 'Free'}</p>
+          <p className="text-xs text-[var(--color-text-muted)]">{getPosStatusLabel(pos.status)}</p>
         </div>
       </div>
-      <button onClick={onEdit} className="text-xs font-medium text-[var(--color-navy-900)] hover:underline">Edit</button>
+      <div className="flex items-center gap-3">
+        {isActive && (
+          <button onClick={onDeactivate} className="text-xs font-medium text-[var(--color-danger)] hover:underline">
+            Deactivate
+          </button>
+        )}
+        <button onClick={onEdit} className="text-xs font-medium text-[var(--color-navy-900)] hover:underline">Edit</button>
+      </div>
     </div>
   );
 }
 
 function BranchCard({ business, branch, onRefetch }) {
-  const [modal, setModal] = useState(null); // 'activate' | 'suspend' | 'resume' | 'edit-branch' | { type: 'pos', pos } | null
+  const [modal, setModal] = useState(null); // 'activate' | 'suspend' | 'resume' | 'edit-branch' | { type: 'pos', pos } | { type: 'deactivate-pos', pos } | null
   const [historyOpen, setHistoryOpen] = useState(false);
 
   // branch already carries businessId/ownerId via the spread in
@@ -95,7 +121,12 @@ function BranchCard({ business, branch, onRefetch }) {
         {branch.posTerminals?.length > 0 ? (
           <div className="space-y-0.5">
             {branch.posTerminals.map((pos) => (
-              <PosTerminalRow key={pos.posId} pos={pos} onEdit={() => setModal({ type: 'pos', pos })} />
+              <PosTerminalRow
+                key={pos.posId}
+                pos={pos}
+                onEdit={() => setModal({ type: 'pos', pos })}
+                onDeactivate={() => setModal({ type: 'deactivate-pos', pos })}
+              />
             ))}
           </div>
         ) : (
@@ -149,8 +180,18 @@ function BranchCard({ business, branch, onRefetch }) {
           title="Edit POS terminal"
           initialName={modal.pos.name}
           initialStatus={modal.pos.status}
-          statusOptions={POS_STATUS_OPTIONS}
+          statusOptions={getPosStatusOptions(modal.pos.status)}
           onSave={handleSavePos}
+        />
+      )}
+      {modal?.type === 'deactivate-pos' && (
+        <DeactivatePosModal
+          open
+          onClose={closeModal}
+          business={business}
+          branch={branch}
+          pos={modal.pos}
+          onSuccess={onRefetch}
         />
       )}
     </div>
